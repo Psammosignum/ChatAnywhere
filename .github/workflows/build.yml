@@ -1,0 +1,91 @@
+name: Build plugin package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Http/Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: Http/Frontend
+        run: npm ci
+
+      - name: Build frontend assets
+        working-directory: Http/Frontend
+        run: npm run build
+
+      - name: Prepare frontend bundle for plugin build
+        run: cd Http/Frontend && zip -qr "$GITHUB_WORKSPACE/websiteBuild.zip" dist
+
+      - name: Download Dalamud development libraries
+        run: |
+          curl -fsSL https://goatcorp.github.io/dalamud-distrib/latest.zip -o "$RUNNER_TEMP/dalamud.zip"
+          mkdir -p "$RUNNER_TEMP/dalamud"
+          unzip -q "$RUNNER_TEMP/dalamud.zip" -d "$RUNNER_TEMP/dalamud"
+
+      - name: Restore plugin dependencies
+        run: >-
+          dotnet restore ./ChatAnywhere.csproj
+          -p:DalamudLibPath="$RUNNER_TEMP/dalamud/"
+          -p:IsPlogonBuild=True
+          -p:EnableWindowsTargeting=true
+
+      - name: Build plugin
+        run: >-
+          dotnet build ./ChatAnywhere.csproj
+          --configuration Release
+          --no-restore
+          -p:Platform=x64
+          -p:DalamudLibPath="$RUNNER_TEMP/dalamud/"
+          -p:IsPlogonBuild=True
+          -p:EnableWindowsTargeting=true
+
+      - name: Create latest.zip
+        run: |
+          mkdir -p "$RUNNER_TEMP/plugin-package"
+          cp -a bin/x64/Release/. "$RUNNER_TEMP/plugin-package/"
+          find "$RUNNER_TEMP/plugin-package" -maxdepth 1 -type f -name '*.zip' -delete
+          cd "$RUNNER_TEMP/plugin-package"
+          zip -qr "$GITHUB_WORKSPACE/latest.zip" .
+
+      - name: Verify package contents
+        run: |
+          test -f latest.zip
+          unzip -l latest.zip | grep -E 'ChatAnywhere\.(dll|json)$'
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatAnywhere-latest
+          path: latest.zip
+          if-no-files-found: error
+
+      - name: Upload latest.zip to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: latest.zip
+          generate_release_notes: true
