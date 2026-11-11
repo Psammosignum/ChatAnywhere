@@ -10,12 +10,14 @@
         <LangVersion>latest</LangVersion>
         <DebugSymbols>true</DebugSymbols>
         <DebugType>full</DebugType>
+        <UseWindowsForms>true</UseWindowsForms>
     </PropertyGroup>
 
     <ItemGroup>
         <!-- For lightweight web server -->
         <PackageReference Include="NetStone" Version="1.4.1" />
-        <PackageReference Include="NetStoneCN" Version="1.0.2" />
+        <PackageReference Include="NetStoneCN" Version="1.0.3" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />
         <PackageReference Include="OpenGraph-Net" Version="4.0.1" />
         <PackageReference Include="Watson.Lite" Version="6.3.9" />
     </ItemGroup>

@@ -14,6 +14,12 @@
         "resolved": "1.2.39",
         "contentHash": "fcFN01tDTIQqDuTwr1jUQK/geofiwjG5DycJQOnC72i1SsLAk1ELe+apBOuZ11UMQG8YKFZG1FgvjZPbqHyatg=="
       },
+      "Microsoft.Web.WebView2": {
+        "type": "Direct",
+        "requested": "[1.0.3537.50, )",
+        "resolved": "1.0.3537.50",
+        "contentHash": "6RQRMIcc/xnhDCdBmyc+YoPxPlYHjmg/mfVpQb4iYWr+K/cs28dTxCyOYFZjUFtiwupXN9nCqxOSMumn2ZKAIg=="
+      },
       "NetStone": {
         "type": "Direct",
         "requested": "[1.4.1, )",
@@ -27,9 +33,9 @@
       },
       "NetStoneCN": {
         "type": "Direct",
-        "requested": "[1.0.2, )",
-        "resolved": "1.0.2",
-        "contentHash": "QtxEjeKJz5dkJVY98a2ObaUW0fvoPA+zFGZNEB5ChOLlykbpZDPhcXCpdyol5/2IkZ7Lr2uR1FqM8AjByqkWoA==",
+        "requested": "[1.0.3, )",
+        "resolved": "1.0.3",
+        "contentHash": "QAhK2nc/Ui6eSS/O7kGUVrm2NGvK0qQTkKECj8WJwxAAmTc/RVcezoB6rsXy3LG65za+mxAYRJcaBNsbJmeXAw==",
         "dependencies": {
           "Newtonsoft.Json": "13.0.3"
         }

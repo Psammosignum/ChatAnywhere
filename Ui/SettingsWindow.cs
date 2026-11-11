@@ -5,7 +5,6 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using Dalamud.Bindings.ImGui;
-using NetStoneCN;
 namespace ChatAnywhere.Ui;
 
 public sealed class SettingsWindow : Window
@@ -34,6 +33,8 @@ public sealed class SettingsWindow : Window
     private static readonly Vector4 ColorMuted = new(0.6f, 0.6f, 0.6f, 1f);
     private bool isCheckingLogin;
     private bool isLogged;
+    private bool isOpeningLogin;
+    private string _loginStatus = "";
 
     public SettingsWindow(Plugin plugin) : base("ChatAnywhere - Settings###chatanywhere-settings", ImGuiWindowFlags.AlwaysAutoResize)
     {
@@ -189,7 +190,7 @@ public sealed class SettingsWindow : Window
             ImGui.SameLine();
             if (ImGui.Button("Login"))
             {
-
+                if (!isOpeningLogin) _ = OpenRisingStonesLoginAsync();
             }
             ImGui.SameLine();
             if (ImGui.Button(isCheckingLogin ? "Checking..." : "Recheck Login state")
@@ -197,6 +198,8 @@ public sealed class SettingsWindow : Window
             {
                 _ = RecheckLoginStateAsync();
             }
+            if (!string.IsNullOrEmpty(_loginStatus))
+                ImGui.TextColored(isLogged ? ColorGreen : ColorYellow, _loginStatus);
         }
         ImGui.Spacing();
 
@@ -300,16 +303,44 @@ public sealed class SettingsWindow : Window
     }
     private async Task RecheckLoginStateAsync()
     {
-        var netstonecn = new RisingStonesClient();
         isCheckingLogin = true;
 
         try
         {
-            isLogged = await netstonecn.IsLoggedIn();
+            isLogged = await _plugin.CheckRisingStonesLoginAsync();
+            _loginStatus = isLogged ? "Login session is valid." : "Not logged in. Use Login to sign in.";
         }
+        catch (Exception ex) { isLogged = false; _loginStatus = $"Login check failed: {ex.Message}"; }
         finally
         {
             isCheckingLogin = false;
         }
+    }
+
+    private async Task OpenRisingStonesLoginAsync()
+    {
+        isOpeningLogin = true;
+        _loginStatus = "Waiting for Rising Stones login...";
+        try
+        {
+            var session = await new ChatAnywhere.Core.RisingStonesLoginWindow().ShowAsync(
+                async (candidateCookie, browserUserAgent, cancellationToken) =>
+                {
+                    _plugin.RisingStonesClient.SetUA(browserUserAgent);
+                    _plugin.SetRisingStonesCookie(candidateCookie);
+                    return await _plugin.CheckRisingStonesLoginAsync(cancellationToken);
+                });
+            if (session is null)
+            {
+                _loginStatus = "Login window closed before the session was verified.";
+                return;
+            }
+            _plugin.RisingStonesClient.SetUA(session.UserAgent);
+            _plugin.SetRisingStonesCookie(session.Cookie);
+            isLogged = await _plugin.CheckRisingStonesLoginAsync();
+            _loginStatus = isLogged ? "Login successful." : "Cookie detected, but login verification failed.";
+        }
+        catch (Exception ex) { isLogged = false; _loginStatus = $"Could not complete login: {ex.Message}"; }
+        finally { isOpeningLogin = false; }
     }
 }

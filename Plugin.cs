@@ -4,6 +4,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using ChatAnywhere.Core;
 using ChatAnywhere.Ui;
+using NetStoneCN;
 
 namespace ChatAnywhere;
 
@@ -27,6 +28,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
     public ChatSender Sender { get; init; }
     public FontManager FontManager { get; }
     public WebServer Server { get; init; }
+    public RisingStonesClient RisingStonesClient { get; } = new();
+    private volatile bool _hasRisingStonesCookie;
+    public bool HasRisingStonesCookie => _hasRisingStonesCookie;
 
     public WindowSystem WindowSystem { get; } = new("ChatAnywhere");
     public SettingsWindow SettingsWindow { get; }
@@ -203,6 +207,18 @@ public sealed class Plugin : IAsyncDalamudPlugin
         Interface.SavePluginConfig(Config);
     }
 
+    public void SetRisingStonesCookie(string cookieHeader)
+    {
+        RisingStonesClient.SetCookie(cookieHeader);
+        _hasRisingStonesCookie = true;
+    }
+
+    public async Task<bool> CheckRisingStonesLoginAsync(CancellationToken cancellationToken = default)
+    {
+        if (!_hasRisingStonesCookie) return false;
+        return await RisingStonesClient.IsLoggedIn(cancellationToken).ConfigureAwait(false);
+    }
+
     public async ValueTask DisposeAsync()
     {
         CommandManager.RemoveHandler(CommandName);
@@ -217,6 +233,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         WindowSystem.RemoveAllWindows();
 
         await Server.DisposeAsync().ConfigureAwait(false);
+        RisingStonesClient.Dispose();
         Receiver.Dispose();
 
         SaveConfig();
