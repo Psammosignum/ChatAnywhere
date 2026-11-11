@@ -14,6 +14,7 @@ public sealed class SettingsWindow : Window
     private int _editPort;
     private bool _editAutoStart;
     private bool _editRisingStones;
+    private bool _editAutoAskRelogin;
     private string _editPassword = "";
     private string _editPasswordConfirm = "";
 
@@ -22,6 +23,7 @@ public sealed class SettingsWindow : Window
     private int _savedPort;
     private bool _savedAutoStart;
     private bool _savedRisingStones;
+    private bool _savedAutoAskRelogin;
     private string _savedPasswordHash = "";
 
     // Cached once on open — network enumeration is too expensive to run every frame
@@ -78,12 +80,15 @@ public sealed class SettingsWindow : Window
     {
         _editPort = _plugin.Config.WebinterfacePort;
         _editAutoStart = _plugin.Config.WebinterfaceEnabled;
+        _editRisingStones = _plugin.Config.EnableRisingStonesAvatar;
+        _editAutoAskRelogin = _plugin.Config.AutoAskRelogin;
         _editPassword = "";
         _editPasswordConfirm = "";
         _savedPort = _editPort;
         _savedAutoStart = _editAutoStart;
         _savedPasswordHash = _plugin.Config.WebinterfacePasswordHash;
         _savedRisingStones = _plugin.Config.EnableRisingStonesAvatar;
+        _savedAutoAskRelogin = _plugin.Config.AutoAskRelogin;
     }
 
     /// <summary>
@@ -94,6 +99,7 @@ public sealed class SettingsWindow : Window
         if (_editPort != _savedPort) return true;
         if (_editAutoStart != _savedAutoStart) return true;
         if (_editRisingStones != _savedRisingStones) return true;
+        if (_editAutoAskRelogin != _savedAutoAskRelogin) return true;
         if (_editPassword.Length > 0) return true;
         return false;
     }
@@ -111,6 +117,7 @@ public sealed class SettingsWindow : Window
         _plugin.Config.WebinterfacePort = _editPort;
         _plugin.Config.WebinterfaceEnabled = _editAutoStart;
         _plugin.Config.EnableRisingStonesAvatar = _editRisingStones;
+        _plugin.Config.AutoAskRelogin = _editAutoAskRelogin;
 
         if (IsNewPasscodeValid())
             _plugin.Config.WebinterfacePasswordHash = Configuration.HashPasscode(_editPassword);
@@ -124,6 +131,7 @@ public sealed class SettingsWindow : Window
         _savedAutoStart = _editAutoStart;
         _savedPasswordHash = _plugin.Config.WebinterfacePasswordHash;
         _savedRisingStones = _editRisingStones;
+        _savedAutoAskRelogin = _editAutoAskRelogin;
     }
 
     public override void Draw()
@@ -182,6 +190,7 @@ public sealed class SettingsWindow : Window
             ImGui.TextColored(ColorYellow, "  * Port change takes effect after restarting the server.");
 
         ImGui.Checkbox("Use RisingStones Avatar instead of Lodestone (needs save)", ref _editRisingStones);
+        ImGui.Checkbox("Auto show login window after login state invaild", ref _editAutoAskRelogin);
         ImGui.SameLine();
         if (_savedRisingStones)
         {
@@ -342,5 +351,11 @@ public sealed class SettingsWindow : Window
         }
         catch (Exception ex) { isLogged = false; _loginStatus = $"Could not complete login: {ex.Message}"; }
         finally { isOpeningLogin = false; }
+    }
+
+    internal void RequestRisingStonesLogin()
+    {
+        if (!isOpeningLogin)
+            _ = OpenRisingStonesLoginAsync();
     }
 }

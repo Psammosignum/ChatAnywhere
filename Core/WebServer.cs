@@ -23,6 +23,7 @@ public class WebServer : IAsyncDisposable
     private readonly SseHandler _sse;
     private readonly SettingsHandler _settings;
     private readonly AvatarHandler _avatar;
+    private readonly AvatarImageForwarder _avatarImageForwarder;
     private readonly OgpHandler _ogp;
     private readonly GameFileHandler _gameFiles;
     private readonly StaticFileHandler _staticFiles;
@@ -38,7 +39,8 @@ public class WebServer : IAsyncDisposable
         _chat        = new ChatHandler(plugin, log, sender, receiver, _auth);
         _sse         = new SseHandler(plugin, log, _sseManager, receiver, _auth, _chat, () => _tokenSource.Token);
         _settings    = new SettingsHandler(plugin, log, _auth);
-        _avatar      = new AvatarHandler(log, _auth);
+        _avatar      = new AvatarHandler(plugin, log, _auth);
+        _avatarImageForwarder = new AvatarImageForwarder(log, _auth);
         _ogp         = new OgpHandler(log, _auth);
         _gameFiles   = new GameFileHandler(plugin, log, _auth);
         _staticFiles = new StaticFileHandler(plugin, _gameFiles);
@@ -73,6 +75,7 @@ public class WebServer : IAsyncDisposable
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/history",  _chat.HandleGetHistory,           ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/channels", _chat.HandleGetChannels,          ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/avatar",   _avatar.HandleGetAvatar,          ExceptionRoute);
+            _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/avatar/image", _avatarImageForwarder.HandleGetImage, ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/ogp",      _ogp.HandleGetOgp,                ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.OPTIONS, "/settings",            _auth.HandleCorsPreflight,           ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/settings",            _settings.HandleGetSettings,         ExceptionRoute);
@@ -118,6 +121,7 @@ public class WebServer : IAsyncDisposable
         {
             _tokenSource.Cancel();
             _host?.Stop();
+            _avatarImageForwarder.ClearCache();
             IsRunning = false;
             _log.Info("Web server stopped.");
         }
@@ -136,6 +140,7 @@ public class WebServer : IAsyncDisposable
         _receiver.OnMessageReceived -= _sse.OnChatMessageReceived;
         _receiver.Dispose();
         _ogp.Dispose();
+        _avatarImageForwarder.Dispose();
         await _sseManager.DisposeAsync().ConfigureAwait(false);
         _host?.Dispose();
         _tokenSource.Dispose();

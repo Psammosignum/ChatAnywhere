@@ -30,15 +30,17 @@ export function AvatarImage({ name, world }: Props) {
     gcTime: Infinity,
   });
 
-  const [failed, setFailed] = useState(false);
-  const src = failed || !data ? theme.avatarPlaceholder : data;
+  const [failedSrc, setFailedSrc] = useState('');
+  const src = !data || failedSrc === data ? theme.avatarPlaceholder : data;
 
   return (
     <img
       src={src}
       alt={cleanName}
       style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (src !== theme.avatarPlaceholder) setFailedSrc(src);
+      }}
     />
   );
 }

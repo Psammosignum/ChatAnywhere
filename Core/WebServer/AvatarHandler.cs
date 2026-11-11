@@ -3,6 +3,8 @@ using System.Text.Json;
 using Dalamud.Plugin.Services;
 using NetStone;
 using NetStone.Search.Character;
+using NetStoneCN;
+using NetStoneCN.Model;
 using WatsonWebserver.Core;
 
 namespace ChatAnywhere.Core;
@@ -11,12 +13,23 @@ internal class AvatarHandler
 {
     private readonly IPluginLog _log;
     private readonly AuthHandler _auth;
+    private readonly Plugin _plugin;
 
     private static LodestoneClient? _lodestoneClient;
     private static readonly ConcurrentDictionary<string, string> AvatarCache = new();
 
-    internal AvatarHandler(IPluginLog log, AuthHandler auth)
+    private static readonly IReadOnlyDictionary<string, string> RisingStonesDataCenters = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["陆行鸟"] = "拉诺西亚|幻影群岛|神意之地|红玉海|萌芽池|宇宙和音|沃仙曦染|晨曦王座",
+        ["莫古力"] = "白银乡|白金幻象|神拳痕|潮风亭|拂晓之间|旅人栈桥|龙巢神殿|梦羽宝境",
+        ["猫小胖"] = "紫水栈桥|延夏|静语庄园|摩杜纳|海猫茶屋|柔风海湾|琥珀原",
+        ["豆豆柴"] = "水晶塔|银泪湖|太阳海岸|伊修加德|红茶川",
+    }.SelectMany(pair => pair.Value.Split('|').Select(server => (server, pair.Key)))
+     .ToDictionary(item => item.server, item => item.Key, StringComparer.Ordinal);
+
+    internal AvatarHandler(Plugin plugin, IPluginLog log, AuthHandler auth)
+    {
+        _plugin = plugin;
         _log = log;
         _auth = auth;
     }
@@ -51,49 +64,66 @@ internal class AvatarHandler
 
         try
         {
-            _lodestoneClient ??= await LodestoneClient.GetClientAsync();
-
-            var searchPage = await _lodestoneClient.SearchCharacter(new CharacterSearchQuery
+            string avatarUrl;
+            if (_plugin.Config.EnableRisingStonesAvatar)
             {
-                CharacterName = name,
-                World = world,
-            });
-
-            if (searchPage == null || searchPage.Results == null)
+                // Don't hit RisingStones search/profile APIs until the settings login check succeeded.
+                if (!_plugin.IsRisingStonesLoggedIn)
+                {
+                    await SendAvatarResponse(ctx, string.Empty);
+                    return;
+                }
+                avatarUrl = await GetRisingStonesAvatar(name, world);
+            }
+            else
             {
-                ctx.Response.StatusCode = 200;
-                _auth.AddCorsHeaders(ctx);
-                ctx.Response.Headers.Add("Content-Type", "application/json");
-                await ctx.Response.Send(JsonSerializer.Serialize(new { avatarUrl = string.Empty }));
-                return;
+                _lodestoneClient ??= await LodestoneClient.GetClientAsync();
+                var searchPage = await _lodestoneClient.SearchCharacter(new CharacterSearchQuery { CharacterName = name, World = world });
+                var matchingEntry = searchPage?.Results?.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                var character = matchingEntry is null ? null : await matchingEntry.GetCharacter();
+                avatarUrl = character?.Avatar?.ToString() ?? string.Empty;
             }
 
-            var matchingEntry = searchPage.Results.FirstOrDefault(r => r.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            if (matchingEntry != null)
-            {
-                var lschar = await matchingEntry.GetCharacter();
-                var avatarUrl = lschar?.Avatar?.ToString() ?? string.Empty;
-                AvatarCache.TryAdd(cacheKey, avatarUrl);
-
-                ctx.Response.StatusCode = 200;
-                _auth.AddCorsHeaders(ctx);
-                ctx.Response.Headers.Add("Content-Type", "application/json");
-                await ctx.Response.Send(JsonSerializer.Serialize(new { avatarUrl }));
-                return;
-            }
+            avatarUrl = string.IsNullOrEmpty(avatarUrl) ? string.Empty : $"/avatar/image?url={Uri.EscapeDataString(avatarUrl)}";
+            if (!string.IsNullOrEmpty(avatarUrl)) AvatarCache.TryAdd(cacheKey, avatarUrl);
 
             ctx.Response.StatusCode = 200;
             _auth.AddCorsHeaders(ctx);
             ctx.Response.Headers.Add("Content-Type", "application/json");
-            await ctx.Response.Send(JsonSerializer.Serialize(new { avatarUrl = string.Empty }));
+            await ctx.Response.Send(JsonSerializer.Serialize(new { avatarUrl }));
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "Failed to get character from Lodestone");
-            ctx.Response.StatusCode = 200;
-            _auth.AddCorsHeaders(ctx);
-            ctx.Response.Headers.Add("Content-Type", "application/json");
-            await ctx.Response.Send(JsonSerializer.Serialize(new { avatarUrl = string.Empty }));
+            if (_plugin.Config.EnableRisingStonesAvatar && ex is RisingStonesException risingStonesException && risingStonesException.ApiCode is not null and not 10000)
+            {
+                _plugin.MarkRisingStonesLoginInvalid();
+                if (_plugin.Config.AutoAskRelogin)
+                    _plugin.RequestRisingStonesLogin();
+            }
+            _log.Error(ex, _plugin.Config.EnableRisingStonesAvatar
+                ? "Failed to get character from Rising Stones"
+                : "Failed to get character from Lodestone");
+            await SendAvatarResponse(ctx, string.Empty);
         }
+    }
+
+    private async Task SendAvatarResponse(HttpContextBase ctx, string avatarUrl)
+    {
+        ctx.Response.StatusCode = 200;
+        _auth.AddCorsHeaders(ctx);
+        ctx.Response.Headers.Add("Content-Type", "application/json");
+        await ctx.Response.Send(JsonSerializer.Serialize(new { avatarUrl }));
+    }
+
+    private async Task<string> GetRisingStonesAvatar(string name, string server)
+    {
+        if (!RisingStonesDataCenters.TryGetValue(server, out var dataCenter))
+            return string.Empty;
+
+        var uuid = await _plugin.RisingStonesClient.SearchCharacters(name, dataCenter, server);
+        if (string.IsNullOrWhiteSpace(uuid)) return string.Empty;
+
+        var character = await _plugin.RisingStonesClient.GetCharacter(uuid);
+        return character?.Avatar?.ToString() ?? string.Empty;
     }
 }

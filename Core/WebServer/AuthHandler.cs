@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Collections.Concurrent;
 using Dalamud.Plugin.Services;
 using WatsonWebserver.Core;
 
@@ -8,7 +9,7 @@ internal class AuthHandler
 {
     private readonly Plugin _plugin;
     private readonly IPluginLog _log;
-    private readonly HashSet<string> _authTokens = new();
+    private readonly ConcurrentDictionary<string, byte> _authTokens = new();
     private const string AuthCookieName = "chat-anywhere-token";
 
     internal AuthHandler(Plugin plugin, IPluginLog log)
@@ -41,7 +42,7 @@ internal class AuthHandler
     {
         var cookieHeader = ctx.Request.Headers["Cookie"] ?? string.Empty;
         var token = HttpHelper.ExtractCookie(cookieHeader, AuthCookieName);
-        return !string.IsNullOrEmpty(token) && _authTokens.Contains(token);
+        return !string.IsNullOrEmpty(token) && _authTokens.ContainsKey(token);
     }
 
     internal async Task<bool> RequireAuth(HttpContextBase ctx)
@@ -82,7 +83,7 @@ internal class AuthHandler
         }
 
         var token = Guid.NewGuid().ToString("N");
-        _authTokens.Add(token);
+        _authTokens.TryAdd(token, 0);
 
         ctx.Response.StatusCode = 200;
         AddCorsHeaders(ctx);

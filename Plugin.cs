@@ -31,6 +31,12 @@ public sealed class Plugin : IAsyncDalamudPlugin
     public RisingStonesClient RisingStonesClient { get; } = new();
     private volatile bool _hasRisingStonesCookie;
     public bool HasRisingStonesCookie => _hasRisingStonesCookie;
+    private volatile bool _isRisingStonesLoggedIn;
+    public bool IsRisingStonesLoggedIn => _isRisingStonesLoggedIn;
+    public void MarkRisingStonesLoginInvalid() => _isRisingStonesLoggedIn = false;
+
+    public void RequestRisingStonesLogin() =>
+        Framework.RunOnTick(() => SettingsWindow.RequestRisingStonesLogin());
 
     public WindowSystem WindowSystem { get; } = new("ChatAnywhere");
     public SettingsWindow SettingsWindow { get; }
@@ -216,7 +222,8 @@ public sealed class Plugin : IAsyncDalamudPlugin
     public async Task<bool> CheckRisingStonesLoginAsync(CancellationToken cancellationToken = default)
     {
         if (!_hasRisingStonesCookie) return false;
-        return await RisingStonesClient.IsLoggedIn(cancellationToken).ConfigureAwait(false);
+        _isRisingStonesLoggedIn = await RisingStonesClient.IsLoggedIn(cancellationToken).ConfigureAwait(false);
+        return _isRisingStonesLoggedIn;
     }
 
     public async ValueTask DisposeAsync()

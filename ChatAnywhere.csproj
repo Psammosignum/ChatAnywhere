@@ -36,4 +36,13 @@
     <Target Name="UnzipFrontend" AfterTargets="Build" Condition="'$(IsPlogonBuild)' == 'True'">
         <Unzip SourceFiles="$(MSBuildProjectDirectory)/websiteBuild.zip" DestinationFolder="$(OutputPath)" />
     </Target>
+
+    <!-- WebView2's NuGet targets add both WinForms and WPF references for Windows TFMs.
+         This plugin uses only the WinForms control; exclude the unused WPF assembly,
+         which otherwise introduces a WindowsBase version conflict. -->
+    <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+        <ItemGroup>
+            <Reference Remove="@(Reference)" Condition="'%(Reference.Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+        </ItemGroup>
+    </Target>
 </Project>

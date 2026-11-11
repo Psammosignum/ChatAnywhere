@@ -35,13 +35,15 @@ internal static class HttpHelper
 
     internal static string? ExtractCookie(string cookieHeader, string name)
     {
-        foreach (var part in cookieHeader.Split(';'))
+        // Some local proxy/debug tools combine separate Cookie fields with commas.
+        // Split on both delimiters so unrelated injected cookies cannot hide ours.
+        foreach (var part in cookieHeader.Split(';', ','))
         {
             var trimmed = part.Trim();
             var eq = trimmed.IndexOf('=');
             if (eq < 0) continue;
             if (trimmed[..eq].Trim() == name)
-                return trimmed[(eq + 1)..].Trim();
+                return trimmed[(eq + 1)..].Trim().Trim('"');
         }
         return null;
     }

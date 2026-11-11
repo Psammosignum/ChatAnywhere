@@ -15,6 +15,7 @@ public class Configuration : IPluginConfiguration
     public string WebinterfacePasswordHash { get; set; } = "";
 
     public bool EnableRisingStonesAvatar { get; set; } = false;
+    public bool AutoAskRelogin { get; set; } = false;
     private const int SaltSize   = 16;
     private const int KeySize    = 32;
     private const int Iterations = 100_000;
