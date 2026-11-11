@@ -48,14 +48,14 @@ jobs:
 
       - name: Restore plugin dependencies
         run: >-
-          dotnet restore ./ChatAnywhere.csproj
+          dotnet restore ./ChatAnywhereCNReborn.csproj
           -p:DalamudLibPath="$RUNNER_TEMP/dalamud/"
           -p:IsPlogonBuild=True
           -p:EnableWindowsTargeting=true
 
       - name: Build plugin
         run: >-
-          dotnet build ./ChatAnywhere.csproj
+          dotnet build ./ChatAnywhereCNReborn.csproj
           --configuration Release
           --no-restore
           -p:Platform=x64
@@ -79,7 +79,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ChatAnywhere-latest
+          name: latest
           path: latest.zip
           if-no-files-found: error
 
