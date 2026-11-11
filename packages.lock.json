@@ -25,6 +25,15 @@
           "Newtonsoft.Json": "13.0.3"
         }
       },
+      "NetStoneCN": {
+        "type": "Direct",
+        "requested": "[1.0.2, )",
+        "resolved": "1.0.2",
+        "contentHash": "QtxEjeKJz5dkJVY98a2ObaUW0fvoPA+zFGZNEB5ChOLlykbpZDPhcXCpdyol5/2IkZ7Lr2uR1FqM8AjByqkWoA==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3"
+        }
+      },
       "OpenGraph-Net": {
         "type": "Direct",
         "requested": "[4.0.1, )",

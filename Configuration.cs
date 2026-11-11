@@ -14,6 +14,7 @@ public class Configuration : IPluginConfiguration
     public int WebinterfacePort { get; set; } = 3000;
     public string WebinterfacePasswordHash { get; set; } = "";
 
+    public bool EnableRisingStonesAvatar { get; set; } = false;
     private const int SaltSize   = 16;
     private const int KeySize    = 32;
     private const int Iterations = 100_000;

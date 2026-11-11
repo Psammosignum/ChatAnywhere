@@ -15,27 +15,23 @@
     <ItemGroup>
         <!-- For lightweight web server -->
         <PackageReference Include="NetStone" Version="1.4.1" />
+        <PackageReference Include="NetStoneCN" Version="1.0.2" />
         <PackageReference Include="OpenGraph-Net" Version="4.0.1" />
         <PackageReference Include="Watson.Lite" Version="6.3.9" />
     </ItemGroup>
 
     <!-- Build frontend, then copy dist/ into the output directory preserving subdirectory structure. -->
     <!-- Skipped during Plogon builds (no internet/npm available); websiteBuild.zip is used instead. -->
-    <Target Name="BuildFrontend" BeforeTargets="BeforeBuild"
-            Condition="'$(IsPlogonBuild)' != 'True'">
+    <Target Name="BuildFrontend" BeforeTargets="BeforeBuild" Condition="'$(IsPlogonBuild)' != 'True'">
         <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)/Http/Frontend" />
         <ItemGroup>
             <_FrontendDist Include="$(MSBuildProjectDirectory)/Http/Frontend/dist/**/*" />
         </ItemGroup>
-        <Copy SourceFiles="@(_FrontendDist)"
-              DestinationFolder="$(OutputPath)dist/%(_FrontendDist.RecursiveDir)"
-              SkipUnchangedFiles="true" />
+        <Copy SourceFiles="@(_FrontendDist)" DestinationFolder="$(OutputPath)dist/%(_FrontendDist.RecursiveDir)" SkipUnchangedFiles="true" />
     </Target>
 
     <!-- Plogon build: extract the pre-built frontend zip committed to the repository. -->
-    <Target Name="UnzipFrontend" AfterTargets="Build"
-            Condition="'$(IsPlogonBuild)' == 'True'">
-        <Unzip SourceFiles="$(MSBuildProjectDirectory)/websiteBuild.zip"
-               DestinationFolder="$(OutputPath)" />
+    <Target Name="UnzipFrontend" AfterTargets="Build" Condition="'$(IsPlogonBuild)' == 'True'">
+        <Unzip SourceFiles="$(MSBuildProjectDirectory)/websiteBuild.zip" DestinationFolder="$(OutputPath)" />
     </Target>
 </Project>

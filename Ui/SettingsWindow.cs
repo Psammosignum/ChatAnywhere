@@ -5,7 +5,7 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using Dalamud.Bindings.ImGui;
-
+using NetStoneCN;
 namespace ChatAnywhere.Ui;
 
 public sealed class SettingsWindow : Window
@@ -14,21 +14,26 @@ public sealed class SettingsWindow : Window
 
     private int _editPort;
     private bool _editAutoStart;
+    private bool _editRisingStones;
     private string _editPassword = "";
     private string _editPasswordConfirm = "";
+
 
     // Snapshot of saved values — used to detect unsaved changes
     private int _savedPort;
     private bool _savedAutoStart;
+    private bool _savedRisingStones;
     private string _savedPasswordHash = "";
 
     // Cached once on open — network enumeration is too expensive to run every frame
     private List<(string Label, string Url)> _cachedUrls = [];
 
-    private static readonly Vector4 ColorGreen  = new(0.4f, 0.9f, 0.4f, 1f);
-    private static readonly Vector4 ColorRed    = new(0.9f, 0.4f, 0.4f, 1f);
+    private static readonly Vector4 ColorGreen = new(0.4f, 0.9f, 0.4f, 1f);
+    private static readonly Vector4 ColorRed = new(0.9f, 0.4f, 0.4f, 1f);
     private static readonly Vector4 ColorYellow = new(1f, 0.85f, 0.2f, 1f);
-    private static readonly Vector4 ColorMuted  = new(0.6f, 0.6f, 0.6f, 1f);
+    private static readonly Vector4 ColorMuted = new(0.6f, 0.6f, 0.6f, 1f);
+    private bool isCheckingLogin;
+    private bool isLogged;
 
     public SettingsWindow(Plugin plugin) : base("ChatAnywhere - Settings###chatanywhere-settings", ImGuiWindowFlags.AlwaysAutoResize)
     {
@@ -70,13 +75,14 @@ public sealed class SettingsWindow : Window
 
     private void SyncFromConfig()
     {
-        _editPort             = _plugin.Config.WebinterfacePort;
-        _editAutoStart        = _plugin.Config.WebinterfaceEnabled;
-        _editPassword         = "";
-        _editPasswordConfirm  = "";
-        _savedPort            = _editPort;
-        _savedAutoStart       = _editAutoStart;
-        _savedPasswordHash    = _plugin.Config.WebinterfacePasswordHash;
+        _editPort = _plugin.Config.WebinterfacePort;
+        _editAutoStart = _plugin.Config.WebinterfaceEnabled;
+        _editPassword = "";
+        _editPasswordConfirm = "";
+        _savedPort = _editPort;
+        _savedAutoStart = _editAutoStart;
+        _savedPasswordHash = _plugin.Config.WebinterfacePasswordHash;
+        _savedRisingStones = _plugin.Config.EnableRisingStonesAvatar;
     }
 
     /// <summary>
@@ -86,6 +92,7 @@ public sealed class SettingsWindow : Window
     {
         if (_editPort != _savedPort) return true;
         if (_editAutoStart != _savedAutoStart) return true;
+        if (_editRisingStones != _savedRisingStones) return true;
         if (_editPassword.Length > 0) return true;
         return false;
     }
@@ -100,8 +107,9 @@ public sealed class SettingsWindow : Window
 
     private void Save()
     {
-        _plugin.Config.WebinterfacePort    = _editPort;
+        _plugin.Config.WebinterfacePort = _editPort;
         _plugin.Config.WebinterfaceEnabled = _editAutoStart;
+        _plugin.Config.EnableRisingStonesAvatar = _editRisingStones;
 
         if (IsNewPasscodeValid())
             _plugin.Config.WebinterfacePasswordHash = Configuration.HashPasscode(_editPassword);
@@ -109,16 +117,17 @@ public sealed class SettingsWindow : Window
         _plugin.SaveConfig();
 
         // Update snapshot so unsaved-changes warning clears
-        _editPassword        = "";
+        _editPassword = "";
         _editPasswordConfirm = "";
-        _savedPort           = _editPort;
-        _savedAutoStart      = _editAutoStart;
-        _savedPasswordHash   = _plugin.Config.WebinterfacePasswordHash;
+        _savedPort = _editPort;
+        _savedAutoStart = _editAutoStart;
+        _savedPasswordHash = _plugin.Config.WebinterfacePasswordHash;
+        _savedRisingStones = _editRisingStones;
     }
 
     public override void Draw()
     {
-        var server    = _plugin.Server;
+        var server = _plugin.Server;
         var isRunning = server.IsRunning;
 
         // ─── Server Control ────────────────────────────────────────────
@@ -171,6 +180,24 @@ public sealed class SettingsWindow : Window
         if (isRunning && server.ActivePort != _editPort)
             ImGui.TextColored(ColorYellow, "  * Port change takes effect after restarting the server.");
 
+        ImGui.Checkbox("Use RisingStones Avatar instead of Lodestone (needs save)", ref _editRisingStones);
+        ImGui.SameLine();
+        if (_savedRisingStones)
+        {
+
+            ImGui.TextColored(isLogged ? ColorGreen : ColorYellow, isLogged ? "Logged in" : "Not logged in");
+            ImGui.SameLine();
+            if (ImGui.Button("Login"))
+            {
+
+            }
+            ImGui.SameLine();
+            if (ImGui.Button(isCheckingLogin ? "Checking..." : "Recheck Login state")
+        && !isCheckingLogin)
+            {
+                _ = RecheckLoginStateAsync();
+            }
+        }
         ImGui.Spacing();
 
         // ─── Security ─────────────────────────────────────────────────
@@ -270,5 +297,19 @@ public sealed class SettingsWindow : Window
 
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Click to open in browser");
+    }
+    private async Task RecheckLoginStateAsync()
+    {
+        var netstonecn = new RisingStonesClient();
+        isCheckingLogin = true;
+
+        try
+        {
+            isLogged = await netstonecn.IsLoggedIn();
+        }
+        finally
+        {
+            isCheckingLogin = false;
+        }
     }
 }
