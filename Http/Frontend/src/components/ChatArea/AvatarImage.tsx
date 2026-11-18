@@ -14,8 +14,30 @@ export function AvatarImage({ name, world }: Props) {
   const enabled = !!cleanName && !!world;
   const theme = useTheme();
 
+  // This is a local status endpoint: it never contacts Rising Stones. Polling lets
+  // an already-open chat notice login/logout and invalidate old empty avatar results.
+  const { data: avatarStatus } = useQuery({
+    queryKey: ['avatar-status'],
+    queryFn: async () => {
+      const r = await fetch(`${RELAY_ADDR}/avatar/status`, { credentials: 'include' });
+      if (r.status === 401) throw r;
+      return (await r.json()) as {
+        risingStonesEnabled: boolean;
+        isLoggedIn: boolean;
+        loginVersion: number;
+        cacheVersion: number;
+      };
+    },
+    enabled,
+    staleTime: 0,
+    refetchInterval: 10_000,
+  });
+
+  const canQueryAvatar = enabled && avatarStatus !== undefined
+    && (!avatarStatus.risingStonesEnabled || avatarStatus.isLoggedIn);
+
   const { data } = useQuery({
-    queryKey: ['avatar', cleanName, world],
+    queryKey: ['avatar', cleanName, world, avatarStatus?.loginVersion, avatarStatus?.cacheVersion],
     queryFn: async () => {
       const r = await fetch(
         `${RELAY_ADDR}/avatar?name=${encodeURIComponent(cleanName)}&world=${encodeURIComponent(world!)}`,
@@ -25,7 +47,7 @@ export function AvatarImage({ name, world }: Props) {
       const json = (await r.json()) as { avatarUrl?: string };
       return json.avatarUrl || '';
     },
-    enabled,
+    enabled: canQueryAvatar,
     staleTime: Infinity,
     gcTime: Infinity,
   });

@@ -18,6 +18,24 @@ internal class AvatarHandler
     private static LodestoneClient? _lodestoneClient;
     private static readonly ConcurrentDictionary<string, string> AvatarCache = new();
 
+    internal void ClearCache() => AvatarCache.Clear();
+
+    internal async Task HandleGetStatus(HttpContextBase ctx)
+    {
+        if (!await _auth.RequireAuth(ctx)) return;
+
+        ctx.Response.StatusCode = 200;
+        _auth.AddCorsHeaders(ctx);
+        ctx.Response.Headers.Add("Content-Type", "application/json");
+        await ctx.Response.Send(JsonSerializer.Serialize(new
+        {
+            risingStonesEnabled = _plugin.Config.EnableRisingStonesAvatar,
+            isLoggedIn = _plugin.IsRisingStonesLoggedIn,
+            loginVersion = _plugin.RisingStonesLoginVersion,
+            cacheVersion = _plugin.AvatarCacheVersion,
+        }));
+    }
+
     private static readonly IReadOnlyDictionary<string, string> RisingStonesDataCenters = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["陆行鸟"] = "拉诺西亚|幻影群岛|神意之地|红玉海|萌芽池|宇宙和音|沃仙曦染|晨曦王座",
@@ -52,7 +70,15 @@ internal class AvatarHandler
             return;
         }
 
-        var cacheKey = $"{name}@{world}";
+        var cacheKey = $"{(_plugin.Config.EnableRisingStonesAvatar ? "risingstones" : "lodestone")}:{name}@{world}";
+        // Never return or populate Rising Stones avatar data before the current
+        // in-memory session has been verified as logged in.
+        if (_plugin.Config.EnableRisingStonesAvatar && !_plugin.IsRisingStonesLoggedIn)
+        {
+            await SendAvatarResponse(ctx, string.Empty);
+            return;
+        }
+
         if (AvatarCache.TryGetValue(cacheKey, out var cachedUrl))
         {
             ctx.Response.StatusCode = 200;
@@ -67,12 +93,6 @@ internal class AvatarHandler
             string avatarUrl;
             if (_plugin.Config.EnableRisingStonesAvatar)
             {
-                // Don't hit RisingStones search/profile APIs until the settings login check succeeded.
-                if (!_plugin.IsRisingStonesLoggedIn)
-                {
-                    await SendAvatarResponse(ctx, string.Empty);
-                    return;
-                }
                 avatarUrl = await GetRisingStonesAvatar(name, world);
             }
             else
@@ -84,7 +104,7 @@ internal class AvatarHandler
                 avatarUrl = character?.Avatar?.ToString() ?? string.Empty;
             }
 
-            avatarUrl = string.IsNullOrEmpty(avatarUrl) ? string.Empty : $"/avatar/image?url={Uri.EscapeDataString(avatarUrl)}";
+            avatarUrl = string.IsNullOrEmpty(avatarUrl) ? string.Empty : $"/avatar/image?v={_plugin.AvatarCacheVersion}&url={Uri.EscapeDataString(avatarUrl)}";
             if (!string.IsNullOrEmpty(avatarUrl)) AvatarCache.TryAdd(cacheKey, avatarUrl);
 
             ctx.Response.StatusCode = 200;

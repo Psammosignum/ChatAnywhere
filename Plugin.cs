@@ -33,7 +33,18 @@ public sealed class Plugin : IAsyncDalamudPlugin
     public bool HasRisingStonesCookie => _hasRisingStonesCookie;
     private volatile bool _isRisingStonesLoggedIn;
     public bool IsRisingStonesLoggedIn => _isRisingStonesLoggedIn;
-    public void MarkRisingStonesLoginInvalid() => _isRisingStonesLoggedIn = false;
+    private int _risingStonesLoginVersion;
+    public int RisingStonesLoginVersion => Volatile.Read(ref _risingStonesLoginVersion);
+    private int _avatarCacheVersion;
+    public int AvatarCacheVersion => Volatile.Read(ref _avatarCacheVersion);
+    public void MarkRisingStonesLoginInvalid()
+    {
+        if (_isRisingStonesLoggedIn)
+        {
+            _isRisingStonesLoggedIn = false;
+            Interlocked.Increment(ref _risingStonesLoginVersion);
+        }
+    }
 
     public void RequestRisingStonesLogin() =>
         Framework.RunOnTick(() => SettingsWindow.RequestRisingStonesLogin());
@@ -107,6 +118,11 @@ public sealed class Plugin : IAsyncDalamudPlugin
         Interface.UiBuilder.Draw         += WindowSystem.Draw;
         Interface.UiBuilder.OpenConfigUi += OnOpenConfigUi;
         Interface.UiBuilder.OpenMainUi   += OnOpenConfigUi;
+
+        // Cookie state is intentionally kept in memory only, so ask the user to sign in
+        // again on startup when Rising Stones avatars are enabled and auto-login is set.
+        if (Config.EnableRisingStonesAvatar && Config.AutoAskRelogin)
+            RequestRisingStonesLogin();
 
         return Task.CompletedTask;
     }
@@ -215,14 +231,25 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
     public void SetRisingStonesCookie(string cookieHeader)
     {
+        _isRisingStonesLoggedIn = false;
         RisingStonesClient.SetCookie(cookieHeader);
         _hasRisingStonesCookie = true;
+        Interlocked.Increment(ref _risingStonesLoginVersion);
+    }
+
+    public void ClearAvatarCache()
+    {
+        Server.ClearAvatarCache();
+        Interlocked.Increment(ref _avatarCacheVersion);
     }
 
     public async Task<bool> CheckRisingStonesLoginAsync(CancellationToken cancellationToken = default)
     {
         if (!_hasRisingStonesCookie) return false;
+        var wasLoggedIn = _isRisingStonesLoggedIn;
         _isRisingStonesLoggedIn = await RisingStonesClient.IsLoggedIn(cancellationToken).ConfigureAwait(false);
+        if (!wasLoggedIn && _isRisingStonesLoggedIn)
+            Interlocked.Increment(ref _risingStonesLoginVersion);
         return _isRisingStonesLoggedIn;
     }
 

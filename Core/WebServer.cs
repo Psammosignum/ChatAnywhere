@@ -75,6 +75,7 @@ public class WebServer : IAsyncDisposable
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/history",  _chat.HandleGetHistory,           ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/channels", _chat.HandleGetChannels,          ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/avatar",   _avatar.HandleGetAvatar,          ExceptionRoute);
+            _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/avatar/status", _avatar.HandleGetStatus, ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/avatar/image", _avatarImageForwarder.HandleGetImage, ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.GET,     "/ogp",      _ogp.HandleGetOgp,                ExceptionRoute);
             _host.Routes.PreAuthentication.Static.Add(HttpMethod.OPTIONS, "/settings",            _auth.HandleCorsPreflight,           ExceptionRoute);
@@ -129,6 +130,12 @@ public class WebServer : IAsyncDisposable
         {
             _log.Error(ex, "Failed to stop web server.");
         }
+    }
+
+    public void ClearAvatarCache()
+    {
+        _avatar.ClearCache();
+        _avatarImageForwarder.ClearCache();
     }
 
     public async ValueTask DisposeAsync()

@@ -210,6 +210,11 @@ public sealed class SettingsWindow : Window
             if (!string.IsNullOrEmpty(_loginStatus))
                 ImGui.TextColored(isLogged ? ColorGreen : ColorYellow, _loginStatus);
         }
+        if (ImGui.Button("Clear avatar cache"))
+        {
+            _plugin.ClearAvatarCache();
+            _loginStatus = "Avatar cache cleared.";
+        }
         ImGui.Spacing();
 
         // ─── Security ─────────────────────────────────────────────────
