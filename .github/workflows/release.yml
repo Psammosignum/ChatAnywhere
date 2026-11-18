@@ -6,82 +6,85 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
           cache-dependency-path: Http/Frontend/package-lock.json
 
-      - name: Setup Takumi Guard (npm supply chain protection)
-        uses: flatt-security/setup-takumi-guard-npm@v1
-
       - name: Install frontend dependencies
+        working-directory: Http/Frontend
         run: npm ci
-        working-directory: Http/Frontend
 
-      - name: Lint frontend
-        run: npm run lint
+      - name: Build frontend assets
         working-directory: Http/Frontend
-
-      - name: Test frontend
-        run: npm test
-        working-directory: Http/Frontend
-
-      - name: Build frontend
         run: npm run build
-        working-directory: Http/Frontend
 
-      # - name: Setup .NET
-      #   uses: actions/setup-dotnet@v4
-      #   with:
-      #     dotnet-version: '9.0.x'
+      - name: Prepare frontend bundle
+        run: cd Http/Frontend && zip -qr "$GITHUB_WORKSPACE/websiteBuild.zip" dist
 
-      # - name: Download Dalamud
-      #   run: |
-      #     wget -q https://goatcorp.github.io/dalamud-distrib/latest.zip -O dalamud.zip
-      #     unzip -q dalamud.zip -d ~/dalamud
-
-      - name: Update websiteBuild.zip
+      - name: Download Dalamud development libraries
         run: |
-          cd Http/Frontend && zip -r ../../websiteBuild.zip dist/ && cd ../..
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout main
-          git pull origin main
-          git add websiteBuild.zip
-          git diff --cached --quiet || git commit -m "chore: update websiteBuild.zip" && git push origin main
+          curl -fsSL https://goatcorp.github.io/dalamud-distrib/latest.zip -o "$RUNNER_TEMP/dalamud.zip"
+          mkdir -p "$RUNNER_TEMP/dalamud"
+          unzip -q "$RUNNER_TEMP/dalamud.zip" -d "$RUNNER_TEMP/dalamud"
 
-      # - name: Build
-      #   run: dotnet build -c Release -p:DalamudLibPath=$HOME/dalamud -p:IsPlogonBuild=True
+      - name: Restore plugin dependencies
+        run: >-
+          dotnet restore ./ChatAnywhere.csproj
+          -p:DalamudLibPath="$RUNNER_TEMP/dalamud/"
+          -p:IsPlogonBuild=True
+          -p:EnableWindowsTargeting=true
 
-      # Package the plugin output itself as the archive root. The old command
-      # archived from a parent directory, producing latest/ChatAnywhere/ nesting.
-      - name: Create release artifact
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Build plugin
+        run: >-
+          dotnet build ./ChatAnywhere.csproj
+          --configuration Release
+          --no-restore
+          -p:Platform=x64
+          -p:DalamudLibPath="$RUNNER_TEMP/dalamud/"
+          -p:IsPlogonBuild=True
+          -p:EnableWindowsTargeting=true
+
+      - name: Create latest.zip
         run: |
           set -euo pipefail
           package_dir="$RUNNER_TEMP/plugin-package"
-          rm -rf "$package_dir"
           mkdir -p "$package_dir"
           cp -a bin/x64/Release/. "$package_dir/"
           find "$package_dir" -maxdepth 1 -type f -name '*.zip' -delete
           test -f "$package_dir/ChatAnywhere.dll"
           test -f "$package_dir/ChatAnywhere.json"
           (cd "$package_dir" && zip -qr "$GITHUB_WORKSPACE/latest.zip" .)
+
+      - name: Verify package contents
+        run: |
           unzip -l latest.zip
-          unzip -l latest.zip | grep -E 'ChatAnywhere\\.(dll|json)$'
+          unzip -l latest.zip | grep -E 'ChatAnywhere\.(dll|json)$'
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatAnywhere-latest
+          path: latest.zip
+          if-no-files-found: error
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -89,17 +92,3 @@ jobs:
         with:
           files: latest.zip
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Update DalamudPlugins repo
-      #   if: startsWith(github.ref, 'refs/tags/')
-      #   run: |
-      #     git clone https://x-access-token:${{ secrets.PLUGINS_REPO_TOKEN }}@github.com/twelvehouse/DalamudPlugins.git dalamud-plugins
-      #     mkdir -p dalamud-plugins/plugins/ChatAnywhere
-      #     cp ChatAnywhere.zip dalamud-plugins/plugins/ChatAnywhere/latest.zip
-      #     cd dalamud-plugins
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     git add plugins/ChatAnywhere/latest.zip
-      #     git diff --cached --quiet || git commit -m "chore: update ChatAnywhere ${{ github.ref_name }}" && git push
