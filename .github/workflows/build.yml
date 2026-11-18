@@ -65,16 +65,23 @@ jobs:
 
       - name: Create latest.zip
         run: |
-          mkdir -p "$RUNNER_TEMP/plugin-package"
-          cp -a bin/x64/Release/. "$RUNNER_TEMP/plugin-package/"
-          find "$RUNNER_TEMP/plugin-package" -maxdepth 1 -type f -name '*.zip' -delete
-          cd "$RUNNER_TEMP/plugin-package"
+          set -euo pipefail
+          package_dir="$RUNNER_TEMP/plugin-package"
+          mkdir -p "$package_dir"
+          manifest_path="$(find bin/x64/Release -type f -name 'ChatAnywhere.json' -print -quit)"
+          test -n "$manifest_path"
+          plugin_dir="$(dirname "$manifest_path")"
+          test -f "$plugin_dir/ChatAnywhere.dll"
+          cp -a "$plugin_dir"/. "$package_dir/"
+          find "$package_dir" -maxdepth 1 -type f -name '*.zip' -delete
+          cd "$package_dir"
           zip -qr "$GITHUB_WORKSPACE/latest.zip" .
 
       - name: Verify package contents
         run: |
           test -f latest.zip
           unzip -l latest.zip | grep -E 'ChatAnywhere\.(dll|json)$'
+          ! unzip -Z1 latest.zip | grep -q '^ChatAnywhere/'
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
