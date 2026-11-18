@@ -26,7 +26,7 @@ It streams your in-game chat to any browser in real time, and lets you send mess
 Messages arrive instantly via Server-Sent Events (no polling).
 All FFXIV channel types are supported: **FC, LS1–8, CWLS1–8, Party, Tell, Say, Shout, Yell, Alliance,** and more.
 
-Each message shows the sender's Lodestone avatar, a coloured channel badge, auto-translate bracket rendering (`【 … 】`), and FFXIV item link indicators.
+Each message shows the sender's Lodestone/RisingStones avatar, a coloured channel badge, auto-translate bracket rendering (`【 … 】`), and FFXIV item link indicators.
 
 ### Custom filters
 
@@ -34,6 +34,7 @@ Create named filters that show only the channel types you care about.
 Organise filters into folders and reorder everything with drag-and-drop.
 
 Each filter can have its own:
+
 - **Default send channel** — the channel used when you press Send
 - **Unread badge** — highlights the filter tab when new messages arrive while it's not active
 
@@ -42,6 +43,7 @@ Each filter can have its own:
 ### Tell mode
 
 Click any sender's name to enter **Tell mode** and reply to them directly.
+
 - **Pin** the conversation to keep Tell mode active across multiple sends
 - Use the **channel switcher** to switch between Tell and any other channel mid-session
 - Recent Tell partners appear in the **Direct Messages** section of the sidebar — clicking one automatically pins them as the active send target
@@ -95,11 +97,18 @@ Open the **Dalamud Plugin Installer**, search for **ChatAnywhere**, and install 
 Before opening the browser UI, set a **4–8 digit numeric passcode** in the plugin settings window (**ChatAnywhere → Security**).
 This passcode protects the web interface from unauthorised access.
 
+### 2.1 Choose avatar lookup method
+
+If you are on ShengQu Server of FFXIV, then change avatar lookup method from Lodestone to RisingStones in settings menu.
+If not, then skip this.
+After choosing RisingStones you need to log in to RisingStones by click Login button and login in the opened webpage.
+Logged cookies will not be storaged locally, only in memory(so every game session will need a relogin).
+
 ### 3. Open the chat UI
 
 Once the plugin is loaded and you are logged in to a character, open your browser and go to:
 
-```
+```text
 http://localhost:3000
 ```
 
@@ -107,7 +116,7 @@ You will be prompted to enter your passcode. After authenticating, the page stre
 
 To access from another device on the same network (phone, tablet, etc.), use your PC's local IP address instead:
 
-```
+```text
 http://192.168.x.x:3000
 ```
 
@@ -130,7 +139,7 @@ To access it from your phone or laptop while away from home, the easiest solutio
 
 4. On the remote device, navigate to:
 
-   ```
+   ```text
    http://100.x.x.x:3000
    ```
 
@@ -149,6 +158,7 @@ ChatAnywhere would not exist without these projects:
 | [ChatTwo](https://github.com/Infiziert90/ChatTwo) | Original inspiration — concept, channel handling, and UI approach |
 | [Dalamud](https://github.com/goatcorp/Dalamud) | Plugin framework and FFXIV game API |
 | [NetStone](https://github.com/xivapi/NetStone) | Lodestone character avatar lookups |
+| [NetStoneCN](https://github.com/Psammosignum/NetStoneCN)| Risingstones character avatar lookups |
 | [OpenGraph-Net](https://github.com/ghorsey/OpenGraph-Net) | URL Open Graph preview metadata |
 | [Watson.Lite](https://github.com/jchristn/WatsonWebserver) | Embedded HTTP server and SSE support |
 | [React](https://react.dev/) + [React Compiler](https://react.dev/learn/react-compiler) | Frontend framework with automatic memoization |
@@ -167,7 +177,7 @@ ChatAnywhere would not exist without these projects:
 
 > **A note on ChatTwo:**
 > This project started as a fork of similar functionality found in ChatTwo. It has been largely rewritten for my own needs, but some code and approaches remain. Thanks for the OSS.
-> 
+>
 > P.S. The author mentioned above has taken a keen interest in this project on the official Dalamud Discord — you can search "chat anywhere" (the space matters) to see for yourself.  
 > I've muted him — but my gratitude remains. 😊
 >
@@ -176,7 +186,7 @@ ChatAnywhere would not exist without these projects:
 <details>
 <summary>How it works (technical overview)</summary>
 
-```
+```text
 FFXIV game process
  └─ Dalamud plugin (C#)
       ├─ Subscribes to Dalamud chat events
@@ -192,7 +202,7 @@ FFXIV game process
       │    ├─ GET        /channels   → list of available chat channels for the logged-in character
       │    ├─ POST       /send       → injects a message into the game's chat input
       │    ├─ GET        /emotes     → list of emotes available to the logged-in character
-      │    ├─ GET        /avatar     → Lodestone character avatar lookup (proxied via NetStone)
+      │    ├─ GET        /avatar     → Character avatar lookup (proxied via NetStone and NetStoneCN temporarily cached)
       │    ├─ GET        /ogp        → Open Graph metadata for URL link preview cards
       │    └─ GET/PUT    /settings   → persists filters, folders, and appearance config
       │                                (returns 503 if no passcode has been configured yet)
