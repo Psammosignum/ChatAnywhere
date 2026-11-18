@@ -48,14 +48,14 @@ jobs:
 
       - name: Restore plugin dependencies
         run: >-
-          dotnet restore ./ChatAnywhere.csproj
+          dotnet restore ./ChatAnywhereCNReborn.csproj
           -p:DalamudLibPath="$RUNNER_TEMP/dalamud/"
           -p:IsPlogonBuild=True
           -p:EnableWindowsTargeting=true
 
       - name: Build plugin
         run: >-
-          dotnet build ./ChatAnywhere.csproj
+          dotnet build ./ChatAnywhereCNReborn.csproj
           --configuration Release
           --no-restore
           -p:Platform=x64
@@ -70,14 +70,14 @@ jobs:
           mkdir -p "$package_dir"
           cp -a bin/x64/Release/. "$package_dir/"
           find "$package_dir" -maxdepth 1 -type f -name '*.zip' -delete
-          test -f "$package_dir/ChatAnywhere.dll"
-          test -f "$package_dir/ChatAnywhere.json"
+          test -f "$package_dir/ChatAnywhereCNReborn.dll"
+          test -f "$package_dir/ChatAnywhereCNReborn.json"
           (cd "$package_dir" && zip -qr "$GITHUB_WORKSPACE/latest.zip" .)
 
       - name: Verify package contents
         run: |
           unzip -l latest.zip
-          unzip -l latest.zip | grep -E 'ChatAnywhere\.(dll|json)$'
+          unzip -l latest.zip | grep -E 'ChatAnywhereCNReborn\.(dll|json)$'
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
